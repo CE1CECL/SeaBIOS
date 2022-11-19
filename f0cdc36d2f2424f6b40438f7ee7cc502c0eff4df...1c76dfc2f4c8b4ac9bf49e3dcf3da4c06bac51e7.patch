@@ -1,0 +1,323 @@
+From 4f458c9b641db2b7ca7e40fbfe60fb5512dafdd1 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 13 Jun 2014 17:20:23 -0500
+Subject: [PATCH 1/5] boot.c: skip boot menu, boot timeout if only one boot
+ device
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/boot.c b/src/boot.c
+index 706b7dfe..d7e42d44 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -457,6 +457,12 @@ interactive_bootmenu(void)
+     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+         return;
+ 
++    //skip menu if only one boot device
++    if ( NULL == BootList.first->next ) {
++	printf("\n");
++	return;
++    }
++
+     while (get_keystroke(0) >= 0)
+         ;
+ 
+
+From 47e03ec76ba609b2ef13c4697dd2beda3393afab Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 13 Jun 2014 17:21:57 -0500
+Subject: [PATCH 2/5] boot.c: fix 'booting' text for USB devices
+
+Currently, booting from a USB device displays the same text as
+booting from a hard disk ('Booting from hard disk').
+Identify USB devices based on description string and display
+identifying text when booting
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/src/boot.c b/src/boot.c
+index d7e42d44..d6e8c865 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -304,6 +304,7 @@ static struct hlist_head BootList VARVERIFY32INIT;
+ #define IPL_TYPE_FLOPPY      0x01
+ #define IPL_TYPE_HARDDISK    0x02
+ #define IPL_TYPE_CDROM       0x03
++#define IPL_TYPE_USB	     0x04
+ #define IPL_TYPE_CBFS        0x20
+ #define IPL_TYPE_BEV         0x80
+ #define IPL_TYPE_BCV         0x81
+@@ -381,8 +382,17 @@ boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio)
+ void
+ boot_add_hd(struct drive_s *drive_g, const char *desc, int prio)
+ {
+-    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++    char *usb = "USB";
++    char short_desc[4];
++    memcpy(short_desc, desc, 3);
++    short_desc[3]='\0';
++    if (strcmp(short_desc, usb) == 0) {
++	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+                   , (u32)drive_g, desc);
++    } else {
++    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++                  , (u32)drive_g, desc);
++    }
+ }
+ 
+ void
+@@ -541,7 +551,7 @@ static int HaveHDBoot, HaveFDBoot;
+ static void
+ add_bev(int type, u32 vector)
+ {
+-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
++    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+         return;
+     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+         return;
+@@ -579,6 +589,10 @@ bcv_prepboot(void)
+             map_hd_drive(pos->drive);
+             add_bev(IPL_TYPE_HARDDISK, 0);
+             break;
++	case IPL_TYPE_USB:
++            map_hd_drive(pos->drive);
++            add_bev(IPL_TYPE_USB, 0);
++            break;
+         case IPL_TYPE_CDROM:
+             map_cd_drive(pos->drive);
+             // NO BREAK
+@@ -739,6 +753,10 @@ do_boot(int seq_nr)
+         printf("Booting from Hard Disk...\n");
+         boot_disk(0x80, 1);
+         break;
++    case IPL_TYPE_USB:
++        printf("Booting from USB Device...\n");
++        boot_disk(0x80, 1);
++        break;
+     case IPL_TYPE_CDROM:
+         boot_cdrom((void*)ie->vector);
+         break;
+
+From af0f2b574db134375da773f4ff8fdb47a29529c0 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Tue, 2 Dec 2014 12:49:46 -0600
+Subject: [PATCH 3/5] boot.c: don't exit boot menu on 'ESC'
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/src/boot.c b/src/boot.c
+index d6e8c865..a70f403f 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -507,26 +507,17 @@ interactive_bootmenu(void)
+         printf("\nt. TPM Configuration\n");
+     }
+ 
+-    // Get key press.  If the menu key is ESC, do not restart boot unless
+-    // 1.5 seconds have passed.  Otherwise users (trained by years of
+-    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+-    // multiple times and immediately booting the primary boot device.
+-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
++    // Get key press
+     for (;;) {
+         scan_code = get_keystroke(1000);
+-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+-            continue;
+         if (tpm_can_show_menu() && scan_code == 20 /* t */) {
+             printf("\n");
+             tpm_menu();
+         }
+-        if (scan_code >= 1 && scan_code <= maxmenu+1)
++	if (scan_code > 1 && scan_code <= maxmenu+1)
+             break;
+     }
+     printf("\n");
+-    if (scan_code == 0x01)
+-        // ESC
+-        return;
+ 
+     // Find entry and make top priority.
+     int choice = scan_code - 1;
+
+From baea166a67f6fe60adc78fee0e74cf0d6e0b1651 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 16 Mar 2016 18:04:56 -0500
+Subject: [PATCH 4/5] sdcard.c: exit controller setup if ver and capabilities
+ are invalid
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/hw/sdcard.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/src/hw/sdcard.c b/src/hw/sdcard.c
+index 73fef294..79c190a5 100644
+--- a/src/hw/sdcard.c
++++ b/src/hw/sdcard.c
+@@ -486,9 +486,13 @@ sdcard_controller_setup(struct sdhci_s *regs, int prio)
+     if (!(present_state & SP_CARD_INSERTED))
+         // No card present
+         return;
+-    dprintf(3, "sdhci@%p ver=%x cap=%x %x\n", regs
+-            , readw(&regs->controller_version)
+-            , readl(&regs->cap_lo), readl(&regs->cap_hi));
++    u16 ver = readw(&regs->controller_version);
++    u32 cap_lo = readl(&regs->cap_lo);
++    u32 cap_hi = readl(&regs->cap_hi);
++    dprintf(3, "sdhci@%p ver=%x cap=%x %x\n", regs, ver, cap_lo, cap_hi);
++    if (ver == 0xffff && cap_lo == 0xffffffff && cap_hi == 0xffffffff)
++        //invalid controller address
++        return;
+     sdcard_reset(regs, SRF_ALL);
+     writew(&regs->irq_signal, 0);
+     writew(&regs->irq_enable, 0x01ff);
+
+From 1c76dfc2f4c8b4ac9bf49e3dcf3da4c06bac51e7 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 28 May 2014 16:53:38 -0500
+Subject: [PATCH 5/5] add config, build script, tweaks for Tianocore duet
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ build-hswbdw-coreboot-duet.sh |  7 ++++
+ configs/.config-hswbdw-duet   | 78 +++++++++++++++++++++++++++++++++++
+ src/boot.c                    |  2 +-
+ src/bootsplash.c              |  3 ++
+ 4 files changed, 89 insertions(+), 1 deletion(-)
+ create mode 100755 build-hswbdw-coreboot-duet.sh
+ create mode 100644 configs/.config-hswbdw-duet
+
+diff --git a/build-hswbdw-coreboot-duet.sh b/build-hswbdw-coreboot-duet.sh
+new file mode 100755
+index 00000000..5589aa69
+--- /dev/null
++++ b/build-hswbdw-coreboot-duet.sh
+@@ -0,0 +1,7 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-hswbdw-duet .config
++make EXTRAVERSION=-MattDevo-`date +"%Y.%m.%d"`
++cp ./out/bios.bin.elf ../coreboot/seabios-hswbdw-duet.bin.elf
+diff --git a/configs/.config-hswbdw-duet b/configs/.config-hswbdw-duet
+new file mode 100644
+index 00000000..ccb778b2
+--- /dev/null
++++ b/configs/.config-hswbdw-duet
+@@ -0,0 +1,78 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++# CONFIG_THREADS is not set
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++# CONFIG_AHCI is not set
++# CONFIG_SDCARD is not set
++# CONFIG_MEGASAS is not set
++# CONFIG_FLOPPY is not set
++CONFIG_FLASH_FLOPPY=y
++# CONFIG_PS2PORT is not set
++# CONFIG_USB is not set
++# CONFIG_SERIAL is not set
++# CONFIG_LPT is not set
++CONFIG_RTC_TIMER=y
++CONFIG_HARDWARE_IRQ=y
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++# CONFIG_CDROM_BOOT is not set
++CONFIG_PCIBIOS=y
++# CONFIG_APMBIOS is not set
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=5
++# CONFIG_DEBUG_SERIAL is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/src/boot.c b/src/boot.c
+index a70f403f..bd1c3965 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -737,7 +737,7 @@ do_boot(int seq_nr)
+     struct bev_s *ie = &BEV[seq_nr];
+     switch (ie->type) {
+     case IPL_TYPE_FLOPPY:
+-        printf("Booting from Floppy...\n");
++        //printf("Booting from Floppy...\n");
+         boot_disk(0x00, CheckFloppySig);
+         break;
+     case IPL_TYPE_HARDDISK:
+diff --git a/src/bootsplash.c b/src/bootsplash.c
+index 165c98d0..d09e0d6a 100644
+--- a/src/bootsplash.c
++++ b/src/bootsplash.c
+@@ -39,6 +39,9 @@ call16_int10(struct bregs *br)
+ void
+ enable_vga_console(void)
+ {
++    if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
++        return;
++
+     dprintf(1, "Turning on vga text mode console\n");
+     struct bregs br;
+ 

@@ -1,0 +1,4 @@
+https://github.com/MrChromebox/SeaBIOS/compare/6bcacf7d19b1dc7fcd99f55491e93514f1f19279...7c3f9dea3681c2df96186b1732db6d4f6244c2c1.patch
+https://github.com/MrChromebox/SeaBIOS/compare/f0cdc36d2f2424f6b40438f7ee7cc502c0eff4df...1c76dfc2f4c8b4ac9bf49e3dcf3da4c06bac51e7.patch
+https://github.com/MrChromebox/SeaBIOS/compare/e4db8c6db9356358d6a34caa19166ae72337e0cc...1b63074bb336e36a5c8b83bc8a623a37a34e77a8.patch
+https://github.com/MrChromebox/SeaBIOS/compare/64f37cc530f144e53c190c9e8209a51b58fd5c43...405579c3e6647f7b10b2040800f17138d5a314eb.patch

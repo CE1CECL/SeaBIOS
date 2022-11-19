@@ -1,0 +1,224 @@
+patching file .config-chromeos
+patching file .config-coreboot
+patching file build4chromeos.sh
+patching file build4coreboot.sh
+patching file .gitignore
+patching file scripts/buildversion.sh
+patching file src/boot.c
+Hunk #1 succeeded at 723 with fuzz 1 (offset 267 lines).
+patching file src/boot.c
+Hunk #1 succeeded at 516 (offset 213 lines).
+Hunk #2 FAILED at 381.
+Hunk #3 succeeded at 809 (offset 275 lines).
+Hunk #4 succeeded at 847 (offset 275 lines).
+Hunk #5 succeeded at 1011 (offset 275 lines).
+1 out of 5 hunks FAILED -- saving rejects to file src/boot.c.rej
+patching file .config-chromeos
+patching file .config-coreboot
+patching file build-chromeos.sh
+patching file build-coreboot.sh (renamed from build4coreboot.sh)
+patching file build4chromeos.sh
+patching file src/boot.c
+Hunk #1 FAILED at 503.
+1 out of 1 hunk FAILED -- saving rejects to file src/boot.c.rej
+patching file build-chromeos.sh
+patching file build-chromeos.sh
+patching file .config-chromeos
+patching file build-chromeos.sh
+patching file .config-c740
+patching file build-c740.sh
+patching file src/bootsplash.c
+patching file src/bootsplash.c
+patching file src/boot.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored -- saving rejects to file src/boot.c.rej
+patching file src/boot.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+5 out of 5 hunks ignored -- saving rejects to file src/boot.c.rej
+patching file src/boot.c
+Hunk #1 FAILED at 507.
+1 out of 1 hunk FAILED -- saving rejects to file src/boot.c.rej
+patching file src/hw/sdcard.c
+patching file build-hswbdw-coreboot-duet.sh
+patching file configs/.config-hswbdw-duet
+patching file src/boot.c
+Hunk #1 succeeded at 1004 (offset 267 lines).
+patching file src/bootsplash.c
+patching file .gitignore
+Hunk #1 FAILED at 1.
+1 out of 1 hunk FAILED -- saving rejects to file .gitignore.rej
+patching file src/boot.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored -- saving rejects to file src/boot.c.rej
+patching file src/boot.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+5 out of 5 hunks ignored -- saving rejects to file src/boot.c.rej
+patching file src/boot.c
+Hunk #1 FAILED at 514.
+1 out of 1 hunk FAILED -- saving rejects to file src/boot.c.rej
+patching file src/hw/sdcard.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored -- saving rejects to file src/hw/sdcard.c.rej
+patching file src/hw/ps2port.c
+patching file scripts/buildversion.py
+patching file vgasrc/cbvga.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored -- saving rejects to file vgasrc/cbvga.c.rej
+patching file build-all.sh
+patching file build-apl-cros.sh
+patching file build-bsw-cros.sh
+patching file build-byt-coreboot.sh
+patching file build-byt-cros.sh
+patching file build-hswbdw-book-cros.sh
+patching file build-hswbdw-box-cros.sh
+patching file build-hswbdw-coreboot.sh
+patching file build-kbl-cros.sh
+patching file build-link-cros.sh
+patching file build-skl-cros.sh
+patching file configs/.config-apl-cros
+patching file configs/.config-bsw-cros
+patching file configs/.config-byt-coreboot
+patching file configs/.config-byt-cros
+patching file configs/.config-hswbdw-book-cros
+patching file configs/.config-hswbdw-box-cros
+patching file configs/.config-hswbdw-coreboot
+patching file configs/.config-kbl-cros
+patching file configs/.config-skl-cros
+File seabios-link-empty.bin: git binary diffs are not supported.
+patching file .gitignore
+Hunk #1 FAILED at 1.
+1 out of 1 hunk FAILED -- saving rejects to file .gitignore.rej
+patching file src/boot.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+5 out of 5 hunks ignored -- saving rejects to file src/boot.c.rej
+patching file src/boot.c
+Hunk #1 succeeded at 752 (offset -3 lines).
+Hunk #2 succeeded at 766 (offset -3 lines).
+patching file src/hw/sdcard.c
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored -- saving rejects to file src/hw/sdcard.c.rej
+patching file src/hw/sdcard.c
+patching file scripts/buildversion.py
+Reversed (or previously applied) patch detected!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored -- saving rejects to file scripts/buildversion.py.rej
+The next patch would create the file build-all.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-apl-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-bsw-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-byt-coreboot.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-byt-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-hswbdw-book-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-hswbdw-box-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-hswbdw-coreboot.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-kbl-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-link-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file build-skl-cros.sh,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-apl-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-bsw-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-byt-coreboot,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-byt-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-hswbdw-book-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-hswbdw-box-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-hswbdw-coreboot,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-kbl-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+The next patch would create the file configs/.config-skl-cros,
+which already exists!  Assume -R? [n] 
+Apply anyway? [n] 
+Skipping patch.
+1 out of 1 hunk ignored
+File seabios-link-empty.bin: git binary diffs are not supported.
+patching file src/Kconfig
+patching file src/fw/coreboot.c

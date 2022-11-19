@@ -1,0 +1,1674 @@
+From 3e59607b2599a5d5ec2bacd90d89a8d58e8c4f16 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Sat, 21 Jan 2017 16:47:33 -0600
+Subject: [PATCH 1/9] update .gitignore
+
+---
+ .gitignore | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/.gitignore b/.gitignore
+index f9990feb..1f49fba8 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -1,4 +1,4 @@
+ out
+ *.pyc
+ .config
+-.config.old
++.config*.old
+
+From 56bb0da996b4253f01ca01dcefdbf9ff4612acd4 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 13 Jun 2014 17:20:23 -0500
+Subject: [PATCH 2/9] boot.c: skip boot menu, boot timeout if only one boot
+ device
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/boot.c b/src/boot.c
+index ff705fd4..eca1fa22 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -464,6 +464,12 @@ interactive_bootmenu(void)
+     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+         return;
+ 
++    //skip menu if only one boot device
++    if ( NULL == BootList.first->next ) {
++	printf("\n");
++	return;
++    }
++
+     while (get_keystroke(0) >= 0)
+         ;
+ 
+
+From b77ed3a26f8d3d298ac84f889be3aa9b9654b09f Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 13 Jun 2014 17:21:57 -0500
+Subject: [PATCH 3/9] boot.c: fix 'booting' text for USB devices
+
+Currently, booting from a USB device displays the same text as
+booting from a hard disk ('Booting from hard disk').
+Identify USB devices based on description string and display
+identifying text when booting
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/src/boot.c b/src/boot.c
+index eca1fa22..c0f3bca8 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -311,6 +311,7 @@ static struct hlist_head BootList VARVERIFY32INIT;
+ #define IPL_TYPE_FLOPPY      0x01
+ #define IPL_TYPE_HARDDISK    0x02
+ #define IPL_TYPE_CDROM       0x03
++#define IPL_TYPE_USB	     0x04
+ #define IPL_TYPE_CBFS        0x20
+ #define IPL_TYPE_BEV         0x80
+ #define IPL_TYPE_BCV         0x81
+@@ -388,8 +389,17 @@ boot_add_floppy(struct drive_s *drive, const char *desc, int prio)
+ void
+ boot_add_hd(struct drive_s *drive, const char *desc, int prio)
+ {
+-    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++    char *usb = "USB";
++    char short_desc[4];
++    memcpy(short_desc, desc, 3);
++    short_desc[3]='\0';
++    if (strcmp(short_desc, usb) == 0) {
++	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+                   , (u32)drive, desc);
++    } else {
++    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++                  , (u32)drive, desc);
++    }
+ }
+ 
+ void
+@@ -548,7 +558,7 @@ static int HaveHDBoot, HaveFDBoot;
+ static void
+ add_bev(int type, u32 vector)
+ {
+-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
++    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+         return;
+     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+         return;
+@@ -586,6 +596,10 @@ bcv_prepboot(void)
+             map_hd_drive(pos->drive);
+             add_bev(IPL_TYPE_HARDDISK, 0);
+             break;
++	case IPL_TYPE_USB:
++            map_hd_drive(pos->drive);
++            add_bev(IPL_TYPE_USB, 0);
++            break;
+         case IPL_TYPE_CDROM:
+             map_cd_drive(pos->drive);
+             // NO BREAK
+@@ -746,6 +760,10 @@ do_boot(int seq_nr)
+         printf("Booting from Hard Disk...\n");
+         boot_disk(0x80, 1);
+         break;
++    case IPL_TYPE_USB:
++        printf("Booting from USB Device...\n");
++        boot_disk(0x80, 1);
++        break;
+     case IPL_TYPE_CDROM:
+         boot_cdrom((void*)ie->vector);
+         break;
+
+From 55d313a58ba83c6a78d991c76f1f58985f4b87b9 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Tue, 2 Dec 2014 12:49:46 -0600
+Subject: [PATCH 4/9] boot.c: don't exit boot menu on 'ESC'
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/src/boot.c b/src/boot.c
+index c0f3bca8..efa781aa 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -514,26 +514,17 @@ interactive_bootmenu(void)
+         printf("\nt. TPM Configuration\n");
+     }
+ 
+-    // Get key press.  If the menu key is ESC, do not restart boot unless
+-    // 1.5 seconds have passed.  Otherwise users (trained by years of
+-    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+-    // multiple times and immediately booting the primary boot device.
+-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
++    // Get key press
+     for (;;) {
+         scan_code = get_keystroke(1000);
+-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+-            continue;
+         if (tpm_can_show_menu() && scan_code == 20 /* t */) {
+             printf("\n");
+             tpm_menu();
+         }
+-        if (scan_code >= 1 && scan_code <= maxmenu+1)
++	if (scan_code > 1 && scan_code <= maxmenu+1)
+             break;
+     }
+     printf("\n");
+-    if (scan_code == 0x01)
+-        // ESC
+-        return;
+ 
+     // Find entry and make top priority.
+     int choice = scan_code - 1;
+
+From 41621d942939b602f2eaf0ddd9a1baa37caa17ff Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 16 Mar 2016 18:04:56 -0500
+Subject: [PATCH 5/9] sdcard.c: exit controller setup if ver and capabilities
+ are invalid
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/hw/sdcard.c | 10 +++++++---
+ 1 file changed, 7 insertions(+), 3 deletions(-)
+
+diff --git a/src/hw/sdcard.c b/src/hw/sdcard.c
+index ab7007bc..97517f40 100644
+--- a/src/hw/sdcard.c
++++ b/src/hw/sdcard.c
+@@ -486,9 +486,13 @@ sdcard_controller_setup(struct sdhci_s *regs, int prio)
+     if (!(present_state & SP_CARD_INSERTED))
+         // No card present
+         return;
+-    dprintf(3, "sdhci@%p ver=%x cap=%x %x\n", regs
+-            , readw(&regs->controller_version)
+-            , readl(&regs->cap_lo), readl(&regs->cap_hi));
++    u16 ver = readw(&regs->controller_version);
++    u32 cap_lo = readl(&regs->cap_lo);
++    u32 cap_hi = readl(&regs->cap_hi);
++    dprintf(3, "sdhci@%p ver=%x cap=%x %x\n", regs, ver, cap_lo, cap_hi);
++    if (ver == 0xffff && cap_lo == 0xffffffff && cap_hi == 0xffffffff)
++        //invalid controller address
++        return;
+     sdcard_reset(regs, SRF_ALL);
+     writew(&regs->irq_signal, 0);
+     writew(&regs->irq_enable, 0x01ff);
+
+From c68f866710599bfb7a77ef04f8936b3da52b41e7 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 12 Aug 2016 14:21:58 -0500
+Subject: [PATCH 6/9] ps2port: adjust init routine to fix PS2 keyboard issues
+
+PS2 keyboards on Chromebooks with Upstream coreboot + SeaBIOS often
+fail to init properly / register keystrokes.  Modify ps2port init
+to match that of Tianocore, which doesn't have said issues.
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/hw/ps2port.c | 18 +++++++++++++-----
+ 1 file changed, 13 insertions(+), 5 deletions(-)
+
+diff --git a/src/hw/ps2port.c b/src/hw/ps2port.c
+index 88b1059a..2c334c06 100644
+--- a/src/hw/ps2port.c
++++ b/src/hw/ps2port.c
+@@ -465,6 +465,14 @@ ps2_keyboard_setup(void *data)
+     if (ret)
+         return;
+ 
++    // Disable KB/mouse interfaces
++    ret = i8042_command(I8042_CMD_KBD_DISABLE, NULL);
++    if (ret)
++        return;
++    ret = i8042_command(I8042_CMD_AUX_DISABLE, NULL);
++    if (ret)
++        return;
++
+     // Controller self-test.
+     u8 param[2];
+     ret = i8042_command(I8042_CMD_CTL_TEST, param);
+@@ -475,6 +483,11 @@ ps2_keyboard_setup(void *data)
+         return;
+     }
+ 
++    // KB write CMD
++    ret = i8042_command(I8042_CMD_CTL_WCTR, NULL);
++    if (ret)
++        return;
++
+     // Controller keyboard test.
+     ret = i8042_command(I8042_CMD_KBD_TEST, param);
+     if (ret)
+@@ -505,11 +518,6 @@ ps2_keyboard_setup(void *data)
+         return;
+     }
+ 
+-    /* Disable keyboard */
+-    ret = ps2_kbd_command(ATKBD_CMD_RESET_DIS, NULL);
+-    if (ret)
+-        return;
+-
+     // Set scancode command (mode 2)
+     param[0] = 0x02;
+     ret = ps2_kbd_command(ATKBD_CMD_SSCANSET, param);
+
+From 55c74f05ea63ba80e5daa455b0f55e3bba18e842 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 7 Sep 2018 18:30:29 -0500
+Subject: [PATCH 7/9] buildversion: fall back to commit hash
+
+---
+ scripts/buildversion.py | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/buildversion.py b/scripts/buildversion.py
+index 8875497c..e946571a 100755
+--- a/scripts/buildversion.py
++++ b/scripts/buildversion.py
+@@ -36,7 +36,7 @@ def git_version():
+     if not os.path.exists('.git'):
+         logging.debug("No '.git' file/directory found")
+         return ""
+-    ver = check_output("git describe --always --tags --long --dirty").strip()
++    ver = check_output("git describe --always --tags --long --dirty --always").strip()
+     logging.debug("Got git version: %s" % (repr(ver),))
+     return ver
+ 
+
+From b065c7308f0fa309fe63e1b47e15531853996cb3 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Tue, 11 Sep 2018 16:54:53 -0500
+Subject: [PATCH 8/9] SeaVGABios/cbvga: Fix bpp calculation for coreboot
+ framebuffer
+
+Commit 4b42cc4 [SeaVGABios/cbvga: Advertise correct pixel format] neglected
+to wrap the cbfb mask size components in GET_FARVAR(), which resulted in a
+bogus value for bpp, breaking output on most/all devices.  Fix this by
+adding GET_FARVAR() as appropriate.
+
+Additionally, some newer ChromeOS devices still fail even with this fix,
+so fall back to using the coreboot reported bit depth if the calculated
+valid is invalid.
+
+TEST: build/boot a variety of devices (google/[reef,eve], purism/librem_skl)
+using coreboot framebuffer init, verify SeaBIOS boot menu prompt visible.
+
+Signed-off-by: Matt DeVillier <matt.devillier@puri.sm>
+---
+ vgasrc/cbvga.c | 10 ++++++++--
+ 1 file changed, 8 insertions(+), 2 deletions(-)
+
+diff --git a/vgasrc/cbvga.c b/vgasrc/cbvga.c
+index 859524cb..438d8fda 100644
+--- a/vgasrc/cbvga.c
++++ b/vgasrc/cbvga.c
+@@ -312,11 +312,17 @@ cbvga_setup(void)
+     }
+ 
+     u64 addr = GET_FARVAR(0, cbfb->physical_address);
+-    u8 bpp = cbfb->blue_mask_size + cbfb->green_mask_size
+-             + cbfb->red_mask_size + cbfb->reserved_mask_size;
++    u8 bpp = GET_FARVAR(0, cbfb->blue_mask_size)
++             + GET_FARVAR(0, cbfb->green_mask_size)
++             + GET_FARVAR(0, cbfb->red_mask_size)
++             + GET_FARVAR(0, cbfb->reserved_mask_size);
+     u32 xlines = GET_FARVAR(0, cbfb->x_resolution);
+     u32 ylines = GET_FARVAR(0, cbfb->y_resolution);
+     u32 linelength = GET_FARVAR(0, cbfb->bytes_per_line);
++    //fall back to coreboot reported bpp if calculated value invalid
++    if (bpp != 15 && bpp != 16 && bpp != 24 && bpp != 32)
++        bpp = GET_FARVAR(0, cbfb->bits_per_pixel);
++
+     dprintf(1, "Found FB @ %llx %dx%d with %d bpp (%d stride)\n"
+             , addr, xlines, ylines, bpp, linelength);
+ 
+
+From 1b63074bb336e36a5c8b83bc8a623a37a34e77a8 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 28 May 2014 16:53:38 -0500
+Subject: [PATCH 9/9] build: add build scripts, configs
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ build-all.sh                     |  14 +++++
+ build-apl-cros.sh                |  15 +++++
+ build-bsw-cros.sh                |  19 +++++++
+ build-byt-coreboot.sh            |  11 ++++
+ build-byt-cros.sh                |  22 ++++++++
+ build-hswbdw-book-cros.sh        |  15 +++++
+ build-hswbdw-box-cros.sh         |  16 ++++++
+ build-hswbdw-coreboot.sh         |   7 +++
+ build-kbl-cros.sh                |  16 ++++++
+ build-link-cros.sh               |  16 ++++++
+ build-skl-cros.sh                |  16 ++++++
+ configs/.config-apl-cros         |  92 ++++++++++++++++++++++++++++++
+ configs/.config-bsw-cros         |  92 ++++++++++++++++++++++++++++++
+ configs/.config-byt-coreboot     |  88 +++++++++++++++++++++++++++++
+ configs/.config-byt-cros         |  88 +++++++++++++++++++++++++++++
+ configs/.config-hswbdw-book-cros |  94 +++++++++++++++++++++++++++++++
+ configs/.config-hswbdw-box-cros  |  90 +++++++++++++++++++++++++++++
+ configs/.config-hswbdw-coreboot  |  90 +++++++++++++++++++++++++++++
+ configs/.config-kbl-cros         |  92 ++++++++++++++++++++++++++++++
+ configs/.config-skl-cros         |  88 +++++++++++++++++++++++++++++
+ seabios-link-empty.bin           | Bin 0 -> 2097152 bytes
+ 21 files changed, 981 insertions(+)
+ create mode 100755 build-all.sh
+ create mode 100755 build-apl-cros.sh
+ create mode 100755 build-bsw-cros.sh
+ create mode 100755 build-byt-coreboot.sh
+ create mode 100755 build-byt-cros.sh
+ create mode 100755 build-hswbdw-book-cros.sh
+ create mode 100755 build-hswbdw-box-cros.sh
+ create mode 100755 build-hswbdw-coreboot.sh
+ create mode 100755 build-kbl-cros.sh
+ create mode 100755 build-link-cros.sh
+ create mode 100755 build-skl-cros.sh
+ create mode 100644 configs/.config-apl-cros
+ create mode 100644 configs/.config-bsw-cros
+ create mode 100644 configs/.config-byt-coreboot
+ create mode 100644 configs/.config-byt-cros
+ create mode 100644 configs/.config-hswbdw-book-cros
+ create mode 100644 configs/.config-hswbdw-box-cros
+ create mode 100644 configs/.config-hswbdw-coreboot
+ create mode 100644 configs/.config-kbl-cros
+ create mode 100644 configs/.config-skl-cros
+ create mode 100644 seabios-link-empty.bin
+
+diff --git a/build-all.sh b/build-all.sh
+new file mode 100755
+index 00000000..42a9ea55
+--- /dev/null
++++ b/build-all.sh
+@@ -0,0 +1,14 @@
++#!/bin/bash
++#
++
++build_targets=("bsw-cros" "byt-cros" "byt-coreboot" "hswbdw-coreboot" \
++    "hswbdw-book-cros" "hswbdw-box-cros" "skl-cros" "apl-cros" \ 
++    "kbl-cros" "link-cros");
++for device in ${build_targets[@]}
++do
++    ./build-${device}.sh
++    if [ $? -ne 0 ]; then
++        echo "Error building for ${device}; aborting"
++        exit 1
++    fi
++done
+\ No newline at end of file
+diff --git a/build-apl-cros.sh b/build-apl-cros.sh
+new file mode 100755
+index 00000000..24ae3458
+--- /dev/null
++++ b/build-apl-cros.sh
+@@ -0,0 +1,15 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-apl-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-apl-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0 -c lzma
++cbfstool ${filename} add -f ./out/vgabios.bin -n vgaroms/seavgabios.bin -t optionrom
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/bootorder.emmc.apl -n bootorder -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-bsw-cros.sh b/build-bsw-cros.sh
+new file mode 100755
+index 00000000..8add7be8
+--- /dev/null
++++ b/build-bsw-cros.sh
+@@ -0,0 +1,19 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-bsw-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-bsw-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0 -c lzma
++cbfstool ${filename} add -f ./out/vgabios.bin -n vgaroms/seavgabios.bin -t optionrom
++bootorder=$(mktemp)
++echo -e "/rom@etc/sdcard0\n" > ${bootorder}
++cbfstool ${filename} add -f ${bootorder} -n bootorder -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} add-int -i 0xd131d000 -n etc/sdcard0
++cbfstool ${filename} add-int -i 0xd131f000 -n etc/sdcard1
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-byt-coreboot.sh b/build-byt-coreboot.sh
+new file mode 100755
+index 00000000..ffe39eba
+--- /dev/null
++++ b/build-byt-coreboot.sh
+@@ -0,0 +1,11 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-byt-coreboot .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++cp ./out/bios.bin.elf ../coreboot/seabios-byt.bin.elf
++filename="seabios-byt_bootstub-mrchromebox_`date +"%Y%m%d"`.bin"
++cp ./out/bios.bin.elf ${filename}
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-byt-cros.sh b/build-byt-cros.sh
+new file mode 100755
+index 00000000..6adbe4c6
+--- /dev/null
++++ b/build-byt-cros.sh
+@@ -0,0 +1,22 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-byt-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-byt-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0 -c lzma
++cbfstool ${filename} add -f ~/dev/coreboot/blobs/soc/intel/byt/book/vgabios.bin -n pci8086,0f31.rom -t optionrom
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/bootorder.emmc -n bootorder -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} add-int -i 0xd071f000 -n etc/sdcard0
++cbfstool ${filename} add-int -i 0xd071d000 -n etc/sdcard1
++cbfstool ${filename} add-int -i 0xd071c000 -n etc/sdcard2
++cbfstool ${filename} add-int -i 0xd081f000 -n etc/sdcard3
++cbfstool ${filename} add-int -i 0xd081c000 -n etc/sdcard4
++cbfstool ${filename} add-int -i 0xd091f000 -n etc/sdcard5
++cbfstool ${filename} add-int -i 0xd091c000 -n etc/sdcard6
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-hswbdw-book-cros.sh b/build-hswbdw-book-cros.sh
+new file mode 100755
+index 00000000..ca20a61f
+--- /dev/null
++++ b/build-hswbdw-book-cros.sh
+@@ -0,0 +1,15 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-hswbdw-book-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-hswbdw_book-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++cbfstool ${filename} add -f ./out/vgabios.bin -n vgaroms/seavgabios.bin -t optionrom
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/bootorder.ssd -n bootorder -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-hswbdw-box-cros.sh b/build-hswbdw-box-cros.sh
+new file mode 100755
+index 00000000..69cb7140
+--- /dev/null
++++ b/build-hswbdw-box-cros.sh
+@@ -0,0 +1,16 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-hswbdw-box-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-hswbdw_box-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++cbfstool ${filename} add -f ~/dev/coreboot/blobs/soc/intel/hsw/box/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/bootorder.ssd -n bootorder -t raw
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/links.hswbdw -n links -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-hswbdw-coreboot.sh b/build-hswbdw-coreboot.sh
+new file mode 100755
+index 00000000..84834c9e
+--- /dev/null
++++ b/build-hswbdw-coreboot.sh
+@@ -0,0 +1,7 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-hswbdw-coreboot .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++cp ./out/bios.bin.elf ../coreboot/seabios-hswbdw.bin.elf
+diff --git a/build-kbl-cros.sh b/build-kbl-cros.sh
+new file mode 100755
+index 00000000..d5dfcc8a
+--- /dev/null
++++ b/build-kbl-cros.sh
+@@ -0,0 +1,16 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-kbl-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-kbl-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0 -c lzma
++cbfstool ${filename} add -f ./out/vgabios.bin -n vgaroms/seavgabios.bin -t optionrom
++echo "/pci@i0cf8/*@1e,4/drive@0/disk@0\n" > /tmp/bootorder
++cbfstool ${filename} add -f /tmp/bootorder -n bootorder -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-link-cros.sh b/build-link-cros.sh
+new file mode 100755
+index 00000000..2f490a58
+--- /dev/null
++++ b/build-link-cros.sh
+@@ -0,0 +1,16 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-hswbdw-box-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-link-mrchromebox_`date +"%Y%m%d"`.bin"
++#cbfstool ${filename} create -m x86 -s 0x00200000 -H $((0x200000 - 0x60)) 
++cp seabios-link-empty.bin ${filename}
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0 -c lzma
++cbfstool ${filename} add -f ~/dev/coreboot/blobs/mainboard/google/link/vgabios.bin -n pci8086,0166.rom -t optionrom
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/bootorder.ssd -n bootorder -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+diff --git a/build-skl-cros.sh b/build-skl-cros.sh
+new file mode 100755
+index 00000000..2a01f344
+--- /dev/null
++++ b/build-skl-cros.sh
+@@ -0,0 +1,16 @@
++#!/bin/bash
++#
++set -e
++rm -rf ./out
++cp configs/.config-skl-cros .config
++make EXTRAVERSION=-MrChromebox-`date +"%Y.%m.%d"`
++filename="seabios-skl-mrchromebox_`date +"%Y%m%d"`.bin"
++cbfstool ${filename} create -m x86 -s 0x00200000
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++cbfstool ${filename} add -f ~/dev/coreboot/blobs/soc/intel/skl/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/bootorder.ssd -n bootorder -t raw
++cbfstool ${filename} add -f ~/dev/coreboot/cbfs/links.skl -n links -t raw
++cbfstool ${filename} add-int -i 3000 -n etc/boot-menu-wait
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++mv ${filename}* ~/dev/firmware/
+\ No newline at end of file
+diff --git a/configs/.config-apl-cros b/configs/.config-apl-cros
+new file mode 100644
+index 00000000..a75a57d9
+--- /dev/null
++++ b/configs/.config-apl-cros
+@@ -0,0 +1,92 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++# CONFIG_THREADS is not set
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xfffb1000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++# CONFIG_HARDWARE_IRQ is not set
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++# CONFIG_NO_VGABIOS is not set
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++CONFIG_VGA_COREBOOT=y
++CONFIG_BUILD_VGABIOS=y
++CONFIG_VGA_EMULATE_TEXT=y
++CONFIG_VGA_FIXUP_ASM=y
++CONFIG_VGA_ALLOCATE_EXTRA_STACK=y
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++CONFIG_VGA_VBE=y
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-bsw-cros b/configs/.config-bsw-cros
+new file mode 100644
+index 00000000..68bad9e3
+--- /dev/null
++++ b/configs/.config-bsw-cros
+@@ -0,0 +1,92 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++# CONFIG_THREADS is not set
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffe00000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++# CONFIG_HARDWARE_IRQ is not set
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++# CONFIG_NO_VGABIOS is not set
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++CONFIG_VGA_COREBOOT=y
++CONFIG_BUILD_VGABIOS=y
++CONFIG_VGA_EMULATE_TEXT=y
++CONFIG_VGA_FIXUP_ASM=y
++CONFIG_VGA_ALLOCATE_EXTRA_STACK=y
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++CONFIG_VGA_VBE=y
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-byt-coreboot b/configs/.config-byt-coreboot
+new file mode 100644
+index 00000000..b378a009
+--- /dev/null
++++ b/configs/.config-byt-coreboot
+@@ -0,0 +1,88 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0x0
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++CONFIG_FLASH_FLOPPY=y
++# CONFIG_NVME is not set
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++# CONFIG_HARDWARE_IRQ is not set
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-byt-cros b/configs/.config-byt-cros
+new file mode 100644
+index 00000000..1154baca
+--- /dev/null
++++ b/configs/.config-byt-cros
+@@ -0,0 +1,88 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffe00000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++CONFIG_MEGASAS=y
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++# CONFIG_HARDWARE_IRQ is not set
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-hswbdw-book-cros b/configs/.config-hswbdw-book-cros
+new file mode 100644
+index 00000000..1ed77458
+--- /dev/null
++++ b/configs/.config-hswbdw-book-cros
+@@ -0,0 +1,94 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffe00000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLOPPY is not set
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++CONFIG_RTC_TIMER=y
++CONFIG_HARDWARE_IRQ=y
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++# CONFIG_NO_VGABIOS is not set
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++CONFIG_VGA_COREBOOT=y
++CONFIG_BUILD_VGABIOS=y
++CONFIG_VGA_EMULATE_TEXT=y
++CONFIG_VGA_FIXUP_ASM=y
++CONFIG_VGA_ALLOCATE_EXTRA_STACK=y
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++CONFIG_VGA_VBE=y
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-hswbdw-box-cros b/configs/.config-hswbdw-box-cros
+new file mode 100644
+index 00000000..ffe6c53c
+--- /dev/null
++++ b/configs/.config-hswbdw-box-cros
+@@ -0,0 +1,90 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++# CONFIG_THREADS is not set
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++CONFIG_BOOTSPLASH=y
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffe00000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLOPPY is not set
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++CONFIG_USB_UHCI=y
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++CONFIG_RTC_TIMER=y
++CONFIG_HARDWARE_IRQ=y
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++CONFIG_TCGBIOS=y
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-hswbdw-coreboot b/configs/.config-hswbdw-coreboot
+new file mode 100644
+index 00000000..058f576b
+--- /dev/null
++++ b/configs/.config-hswbdw-coreboot
+@@ -0,0 +1,90 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0x0
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLOPPY is not set
++CONFIG_FLASH_FLOPPY=y
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++CONFIG_RTC_TIMER=y
++CONFIG_HARDWARE_IRQ=y
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-kbl-cros b/configs/.config-kbl-cros
+new file mode 100644
+index 00000000..830d0899
+--- /dev/null
++++ b/configs/.config-kbl-cros
+@@ -0,0 +1,92 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffc00000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_NVME=y
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++# CONFIG_HARDWARE_IRQ is not set
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++# CONFIG_NO_VGABIOS is not set
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++CONFIG_VGA_COREBOOT=y
++CONFIG_BUILD_VGABIOS=y
++CONFIG_VGA_EMULATE_TEXT=y
++CONFIG_VGA_FIXUP_ASM=y
++CONFIG_VGA_ALLOCATE_EXTRA_STACK=y
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++CONFIG_VGA_VBE=y
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/configs/.config-skl-cros b/configs/.config-skl-cros
+new file mode 100644
+index 00000000..b91c24a9
+--- /dev/null
++++ b/configs/.config-skl-cros
+@@ -0,0 +1,88 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++# CONFIG_THREADS is not set
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffc00000
++# CONFIG_MULTIBOOT is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_SDCARD=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLASH_FLOPPY is not set
++# CONFIG_NVME is not set
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++# CONFIG_USB_UHCI is not set
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++# CONFIG_SERIAL is not set
++# CONFIG_SERCON is not set
++# CONFIG_LPT is not set
++# CONFIG_HARDWARE_IRQ is not set
++CONFIG_PMTIMER=y
++CONFIG_TSC_TIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++# CONFIG_TCGBIOS is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=3
++# CONFIG_DEBUG_SERIAL is not set
++# CONFIG_DEBUG_SERIAL_MMIO is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/seabios-link-empty.bin b/seabios-link-empty.bin
+new file mode 100644
+index 0000000000000000000000000000000000000000..2b1396f0c2fd96bb58b0c9ed8c0ddadbc4f47f7e
+GIT binary patch
+literal 2097152
+zcmeIu!3l#v5J1tjl6dsGslX@!g@E8eQl6bz%IXlY0Izu;h8dXK`@H6U7?*c?ly5mo
+zznXJjD}EwCfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZ
+zfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&U
+zAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7
+z2oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N
+z0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+
+z009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBly
+zK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF
+z5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk
+z1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs
+z0RjXF5FkK+009C72oNAZfB*pk1PBlyK!5-N0t5&UAV7cs0RjXF5FkK+009C7{!?I@
+WyFTaqOm&LdbK<T-B#yhSWh*=L&1j_n
+
+literal 0
+HcmV?d00001
+

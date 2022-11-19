@@ -1,0 +1,904 @@
+From 20397ab195a8de63a9a9a46d901dc345d779b33f Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 28 May 2014 16:53:38 -0500
+Subject: [PATCH 01/14] add build scripts/configs
+
+---
+ .config-chromeos  | 84 +++++++++++++++++++++++++++++++++++++++++++++++
+ .config-coreboot  | 84 +++++++++++++++++++++++++++++++++++++++++++++++
+ build4chromeos.sh | 14 ++++++++
+ build4coreboot.sh |  6 ++++
+ 4 files changed, 188 insertions(+)
+ create mode 100644 .config-chromeos
+ create mode 100644 .config-coreboot
+ create mode 100755 build4chromeos.sh
+ create mode 100755 build4coreboot.sh
+
+diff --git a/.config-chromeos b/.config-chromeos
+new file mode 100644
+index 00000000..26de37e3
+--- /dev/null
++++ b/.config-chromeos
+@@ -0,0 +1,84 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++CONFIG_BOOTSPLASH=y
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffe00000
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++CONFIG_ATA=y
++# CONFIG_ATA_DMA is not set
++# CONFIG_ATA_PIO32 is not set
++CONFIG_AHCI=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLOPPY is not set
++# CONFIG_PS2PORT is not set
++CONFIG_USB=y
++CONFIG_USB_UHCI=y
++CONFIG_USB_OHCI=y
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++CONFIG_USB_MOUSE=y
++# CONFIG_SERIAL is not set
++# CONFIG_LPT is not set
++CONFIG_PMTIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++CONFIG_MOUSE=y
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=1
++# CONFIG_DEBUG_SERIAL is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/.config-coreboot b/.config-coreboot
+new file mode 100644
+index 00000000..95f90472
+--- /dev/null
++++ b/.config-coreboot
+@@ -0,0 +1,84 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++CONFIG_THREADS=y
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++CONFIG_BOOTSPLASH=y
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0x0
++# CONFIG_FLASH_FLOPPY is not set
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++CONFIG_ATA=y
++# CONFIG_ATA_DMA is not set
++# CONFIG_ATA_PIO32 is not set
++CONFIG_AHCI=y
++# CONFIG_MEGASAS is not set
++# CONFIG_FLOPPY is not set
++# CONFIG_PS2PORT is not set
++CONFIG_USB=y
++CONFIG_USB_UHCI=y
++CONFIG_USB_OHCI=y
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++CONFIG_USB_MOUSE=y
++# CONFIG_SERIAL is not set
++# CONFIG_LPT is not set
++CONFIG_PMTIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++CONFIG_MOUSE=y
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++
++#
++# VGA ROM
++#
++CONFIG_NO_VGABIOS=y
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++# CONFIG_VGA_COREBOOT is not set
++# CONFIG_BUILD_VGABIOS is not set
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=1
++# CONFIG_DEBUG_SERIAL is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/build4chromeos.sh b/build4chromeos.sh
+new file mode 100755
+index 00000000..c2199e49
+--- /dev/null
++++ b/build4chromeos.sh
+@@ -0,0 +1,14 @@
++#!/bin/bash
++#
++cp .config-chromeos .config
++make
++filename="seabios-panther-`date +"%Y%m%d"`-md.bin"
++cp seabios-empty.bin ${filename}
++../coreboot/util/cbfstool/cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/pci8086,0a06.rom -n pci8086,0a06.rom -t optionrom
++../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
++../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
++../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
++../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/bootorder -n bootorder -t raw
++../coreboot/util/cbfstool/cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
+diff --git a/build4coreboot.sh b/build4coreboot.sh
+new file mode 100755
+index 00000000..1cb272ae
+--- /dev/null
++++ b/build4coreboot.sh
+@@ -0,0 +1,6 @@
++#!/bin/bash
++#
++cp .config-coreboot .config
++make
++cp ./out/bios.bin.elf ../coreboot/seabios.bin.elf
++
+
+From cd5c65c504db9cccedc45db9626be623c1c19b01 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 28 May 2014 16:54:18 -0500
+Subject: [PATCH 02/14] ignore compiled outputs, checksums, backup files
+
+---
+ .gitignore | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.gitignore b/.gitignore
+index f9990feb..ee1acef6 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -2,3 +2,6 @@ out
+ *.pyc
+ .config
+ .config.old
++*~
++*.bin
++*.md5
+
+From 497ce36ee8cfc5a3bd06e5208524fe2f387cb59c Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 28 May 2014 16:54:43 -0500
+Subject: [PATCH 03/14] tweak/personalize version string
+
+---
+ scripts/buildversion.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/scripts/buildversion.sh b/scripts/buildversion.sh
+index 516aff5b..e143bd4f 100755
+--- a/scripts/buildversion.sh
++++ b/scripts/buildversion.sh
+@@ -12,7 +12,7 @@ if [ -z "$BUILD_VERSION" ]; then
+     else
+         VERSION="?"
+     fi
+-    VERSION="${VERSION}-`date +"%Y%m%d_%H%M%S"`-`hostname`"
++    VERSION="${VERSION}-`date +"%Y%m%d"`-MattDevo"
+ else
+     VERSION="$BUILD_VERSION"
+ fi
+
+From 1fad3c71d7a7a05f771bce48742471cad3fa7152 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 13 Jun 2014 17:20:23 -0500
+Subject: [PATCH 04/14] boot.c: skip boot menu, boot timeout if only one boot
+ device
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 6 ++++++
+ 1 file changed, 6 insertions(+)
+
+diff --git a/src/boot.c b/src/boot.c
+index e0f73a38..ee2f7244 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -456,6 +456,12 @@ interactive_bootmenu(void)
+     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+         return;
+ 
++    //skip menu if only one boot device
++    if ( NULL == BootList.first->next ) {
++	printf("\n");
++	return;
++    }
++
+     while (get_keystroke(0) >= 0)
+         ;
+ 
+
+From 1d0dc3b7234cc7a52cef4a2d8112bb6fa1b6fbae Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 13 Jun 2014 17:21:57 -0500
+Subject: [PATCH 05/14] boot.c: fix boot text for USB devices
+
+Currently, booting from a USB device displays the same text as
+booting from a hard disk ('Booting from hard disk').
+Identify USB devices based on description string and display
+correct text when booting
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 22 ++++++++++++++++++++--
+ 1 file changed, 20 insertions(+), 2 deletions(-)
+
+diff --git a/src/boot.c b/src/boot.c
+index ee2f7244..bfe70dcf 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -303,6 +303,7 @@ static struct hlist_head BootList VARVERIFY32INIT;
+ #define IPL_TYPE_FLOPPY      0x01
+ #define IPL_TYPE_HARDDISK    0x02
+ #define IPL_TYPE_CDROM       0x03
++#define IPL_TYPE_USB	     0x04
+ #define IPL_TYPE_CBFS        0x20
+ #define IPL_TYPE_BEV         0x80
+ #define IPL_TYPE_BCV         0x81
+@@ -380,8 +381,17 @@ boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio)
+ void
+ boot_add_hd(struct drive_s *drive_g, const char *desc, int prio)
+ {
+-    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++    char *usb = "USB";
++    char short_desc[4];
++    memcpy(short_desc, desc, 3);
++    short_desc[3]='\0';
++    if (strcmp(short_desc, usb) == 0) {
++	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+                   , (u32)drive_g, desc);
++    } else {
++    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++                  , (u32)drive_g, desc);
++    }
+ }
+ 
+ void
+@@ -533,7 +543,7 @@ static int HaveHDBoot, HaveFDBoot;
+ static void
+ add_bev(int type, u32 vector)
+ {
+-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
++    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+         return;
+     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+         return;
+@@ -571,6 +581,10 @@ bcv_prepboot(void)
+             map_hd_drive(pos->drive);
+             add_bev(IPL_TYPE_HARDDISK, 0);
+             break;
++	case IPL_TYPE_USB:
++            map_hd_drive(pos->drive);
++            add_bev(IPL_TYPE_USB, 0);
++            break;
+         case IPL_TYPE_CDROM:
+             map_cd_drive(pos->drive);
+             // NO BREAK
+@@ -731,6 +745,10 @@ do_boot(int seq_nr)
+         printf("Booting from Hard Disk...\n");
+         boot_disk(0x80, 1);
+         break;
++    case IPL_TYPE_USB:
++        printf("Booting from USB Device...\n");
++        boot_disk(0x80, 1);
++        break;
+     case IPL_TYPE_CDROM:
+         boot_cdrom((void*)ie->vector);
+         break;
+
+From a0c8c8512e6275e0e5df133113c64572ddfb188c Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Wed, 11 Jun 2014 02:49:56 -0500
+Subject: [PATCH 06/14] update config, build scripts
+
+---
+ .config-chromeos                       | 10 +++++-----
+ .config-coreboot                       | 10 +++++-----
+ build-chromeos.sh                      | 17 +++++++++++++++++
+ build4coreboot.sh => build-coreboot.sh |  4 +++-
+ build4chromeos.sh                      | 14 --------------
+ 5 files changed, 30 insertions(+), 25 deletions(-)
+ create mode 100755 build-chromeos.sh
+ rename build4coreboot.sh => build-coreboot.sh (71%)
+ delete mode 100755 build4chromeos.sh
+
+diff --git a/.config-chromeos b/.config-chromeos
+index 26de37e3..27cadbba 100644
+--- a/.config-chromeos
++++ b/.config-chromeos
+@@ -10,7 +10,7 @@ CONFIG_COREBOOT=y
+ # CONFIG_QEMU is not set
+ # CONFIG_CSM is not set
+ # CONFIG_QEMU_HARDWARE is not set
+-CONFIG_THREADS=y
++# CONFIG_THREADS is not set
+ CONFIG_RELOCATE_INIT=y
+ CONFIG_BOOTMENU=y
+ CONFIG_BOOTSPLASH=y
+@@ -26,7 +26,7 @@ CONFIG_ROM_SIZE=0
+ #
+ # Hardware support
+ #
+-CONFIG_ATA=y
++# CONFIG_ATA is not set
+ # CONFIG_ATA_DMA is not set
+ # CONFIG_ATA_PIO32 is not set
+ CONFIG_AHCI=y
+@@ -35,7 +35,7 @@ CONFIG_AHCI=y
+ # CONFIG_PS2PORT is not set
+ CONFIG_USB=y
+ CONFIG_USB_UHCI=y
+-CONFIG_USB_OHCI=y
++# CONFIG_USB_OHCI is not set
+ CONFIG_USB_EHCI=y
+ CONFIG_USB_XHCI=y
+ CONFIG_USB_MSC=y
+@@ -61,7 +61,7 @@ CONFIG_PMM=y
+ CONFIG_BOOT=y
+ CONFIG_KEYBOARD=y
+ CONFIG_KBD_CALL_INT15_4F=y
+-CONFIG_MOUSE=y
++# CONFIG_MOUSE is not set
+ CONFIG_S3_RESUME=y
+ CONFIG_VGAHOOKS=y
+ # CONFIG_DISABLE_A20 is not set
+@@ -79,6 +79,6 @@ CONFIG_VGA_EXTRA_STACK_SIZE=512
+ #
+ # Debugging
+ #
+-CONFIG_DEBUG_LEVEL=1
++CONFIG_DEBUG_LEVEL=3
+ # CONFIG_DEBUG_SERIAL is not set
+ CONFIG_DEBUG_COREBOOT=y
+diff --git a/.config-coreboot b/.config-coreboot
+index 95f90472..9067b6aa 100644
+--- a/.config-coreboot
++++ b/.config-coreboot
+@@ -10,7 +10,7 @@ CONFIG_COREBOOT=y
+ # CONFIG_QEMU is not set
+ # CONFIG_CSM is not set
+ # CONFIG_QEMU_HARDWARE is not set
+-CONFIG_THREADS=y
++# CONFIG_THREADS is not set
+ CONFIG_RELOCATE_INIT=y
+ CONFIG_BOOTMENU=y
+ CONFIG_BOOTSPLASH=y
+@@ -26,7 +26,7 @@ CONFIG_ROM_SIZE=0
+ #
+ # Hardware support
+ #
+-CONFIG_ATA=y
++# CONFIG_ATA is not set
+ # CONFIG_ATA_DMA is not set
+ # CONFIG_ATA_PIO32 is not set
+ CONFIG_AHCI=y
+@@ -35,7 +35,7 @@ CONFIG_AHCI=y
+ # CONFIG_PS2PORT is not set
+ CONFIG_USB=y
+ CONFIG_USB_UHCI=y
+-CONFIG_USB_OHCI=y
++# CONFIG_USB_OHCI is not set
+ CONFIG_USB_EHCI=y
+ CONFIG_USB_XHCI=y
+ CONFIG_USB_MSC=y
+@@ -61,7 +61,7 @@ CONFIG_PMM=y
+ CONFIG_BOOT=y
+ CONFIG_KEYBOARD=y
+ CONFIG_KBD_CALL_INT15_4F=y
+-CONFIG_MOUSE=y
++# CONFIG_MOUSE is not set
+ CONFIG_S3_RESUME=y
+ CONFIG_VGAHOOKS=y
+ # CONFIG_DISABLE_A20 is not set
+@@ -79,6 +79,6 @@ CONFIG_VGA_EXTRA_STACK_SIZE=512
+ #
+ # Debugging
+ #
+-CONFIG_DEBUG_LEVEL=1
++CONFIG_DEBUG_LEVEL=3
+ # CONFIG_DEBUG_SERIAL is not set
+ CONFIG_DEBUG_COREBOOT=y
+diff --git a/build-chromeos.sh b/build-chromeos.sh
+new file mode 100755
+index 00000000..e13fcfc0
+--- /dev/null
++++ b/build-chromeos.sh
+@@ -0,0 +1,17 @@
++#!/bin/bash
++#
++rm -rf ./out
++cp .config-chromeos .config
++make
++if [ $? -eq 0 ]; then
++filename="seabios-haswell-`date +"%Y%m%d"`-md.bin"
++cp seabios-empty.bin ${filename}
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++cbfstool ${filename} add -f ~/coreboot/3rdparty/mainboard/google/panther/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
++cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
++cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
++cbfstool ${filename} add -f ~/coreboot/cbfs/links -n links -t raw
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++fi
+diff --git a/build4coreboot.sh b/build-coreboot.sh
+similarity index 71%
+rename from build4coreboot.sh
+rename to build-coreboot.sh
+index 1cb272ae..6be1d46f 100755
+--- a/build4coreboot.sh
++++ b/build-coreboot.sh
+@@ -1,6 +1,8 @@
+ #!/bin/bash
+ #
++rm -rf ./out
+ cp .config-coreboot .config
+ make
++if [ $? -eq 0 ]; then
+ cp ./out/bios.bin.elf ../coreboot/seabios.bin.elf
+-
++fi
+diff --git a/build4chromeos.sh b/build4chromeos.sh
+deleted file mode 100755
+index c2199e49..00000000
+--- a/build4chromeos.sh
++++ /dev/null
+@@ -1,14 +0,0 @@
+-#!/bin/bash
+-#
+-cp .config-chromeos .config
+-make
+-filename="seabios-panther-`date +"%Y%m%d"`-md.bin"
+-cp seabios-empty.bin ${filename}
+-../coreboot/util/cbfstool/cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
+-../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/pci8086,0a06.rom -n pci8086,0a06.rom -t optionrom
+-../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
+-../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
+-../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
+-../coreboot/util/cbfstool/cbfstool ${filename} add -f ../coreboot/cbfs/bootorder -n bootorder -t raw
+-../coreboot/util/cbfstool/cbfstool ${filename} print
+-md5sum ${filename} > ${filename}.md5
+
+From baa3e6c7e86d36cf2ee9b43a8d1e8ea49fb8e953 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Tue, 2 Dec 2014 12:49:46 -0600
+Subject: [PATCH 07/14] boot.c: don't exit boot menu on 'ESC'
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/boot.c | 13 ++-----------
+ 1 file changed, 2 insertions(+), 11 deletions(-)
+
+diff --git a/src/boot.c b/src/boot.c
+index bfe70dcf..43c19607 100644
+--- a/src/boot.c
++++ b/src/boot.c
+@@ -503,22 +503,13 @@ interactive_bootmenu(void)
+                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
+     }
+ 
+-    // Get key press.  If the menu key is ESC, do not restart boot unless
+-    // 1.5 seconds have passed.  Otherwise users (trained by years of
+-    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+-    // multiple times and immediately booting the primary boot device.
+-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
++    // Get key press
+     for (;;) {
+         scan_code = get_keystroke(1000);
+-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+-            continue;
+-        if (scan_code >= 1 && scan_code <= maxmenu+1)
++        if (scan_code > 1 && scan_code <= maxmenu+1)
+             break;
+     }
+     printf("\n");
+-    if (scan_code == 0x01)
+-        // ESC
+-        return;
+ 
+     // Find entry and make top priority.
+     int choice = scan_code - 1;
+
+From f836d7397e7e63e38760c16aa53539e1de784ae9 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Tue, 6 Jan 2015 14:32:42 -0600
+Subject: [PATCH 08/14] build-chromeos: use non-headless VGA BIOS
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ build-chromeos.sh | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/build-chromeos.sh b/build-chromeos.sh
+index e13fcfc0..ec23db6f 100755
+--- a/build-chromeos.sh
++++ b/build-chromeos.sh
+@@ -7,7 +7,7 @@ if [ $? -eq 0 ]; then
+ filename="seabios-haswell-`date +"%Y%m%d"`-md.bin"
+ cp seabios-empty.bin ${filename}
+ cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
+-cbfstool ${filename} add -f ~/coreboot/3rdparty/mainboard/google/panther/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename} add -f ~/coreboot/3rdparty/mainboard/google/panther/vgabios_orig.bin -n pci8086,0406.rom -t optionrom
+ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
+ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
+ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
+
+From 31b504bb726b29838ebabae627a519b4dc977bba Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Fri, 23 Jan 2015 12:46:20 -0600
+Subject: [PATCH 09/14] build-chromeos: create separate payload for Chromebooks
+ w/proper VGA BIOS
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ build-chromeos.sh | 12 +++++++++++-
+ 1 file changed, 11 insertions(+), 1 deletion(-)
+
+diff --git a/build-chromeos.sh b/build-chromeos.sh
+index ec23db6f..098640fb 100755
+--- a/build-chromeos.sh
++++ b/build-chromeos.sh
+@@ -4,7 +4,8 @@ rm -rf ./out
+ cp .config-chromeos .config
+ make
+ if [ $? -eq 0 ]; then
+-filename="seabios-haswell-`date +"%Y%m%d"`-md.bin"
++filename="seabios-haswell-box-`date +"%Y%m%d"`-md.bin"
++filename2="seabios-haswell-book-`date +"%Y%m%d"`-md.bin"
+ cp seabios-empty.bin ${filename}
+ cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
+ cbfstool ${filename} add -f ~/coreboot/3rdparty/mainboard/google/panther/vgabios_orig.bin -n pci8086,0406.rom -t optionrom
+@@ -14,4 +15,13 @@ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-m
+ cbfstool ${filename} add -f ~/coreboot/cbfs/links -n links -t raw
+ cbfstool ${filename} print
+ md5sum ${filename} > ${filename}.md5
++cp seabios-empty.bin ${filename2}
++cbfstool ${filename2} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++cbfstool ${filename2} add -f ~/coreboot/3rdparty/mainboard/google/peppy/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename2} add -f ~/coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
++cbfstool ${filename2} add -f ~/coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
++cbfstool ${filename2} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
++cbfstool ${filename2} add -f ~/coreboot/cbfs/links -n links -t raw
++cbfstool ${filename2} print
++md5sum ${filename2} > ${filename2}.md5
+ fi
+
+From 70df87c6208db4f285fff5d9ab943dc7b55913ea Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Sat, 24 Jan 2015 22:59:07 -0600
+Subject: [PATCH 10/14] config-chromeos: add PS2 keyboard support for
+ Chromebooks
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ .config-chromeos | 5 +----
+ 1 file changed, 1 insertion(+), 4 deletions(-)
+
+diff --git a/.config-chromeos b/.config-chromeos
+index 27cadbba..e5d07524 100644
+--- a/.config-chromeos
++++ b/.config-chromeos
+@@ -27,12 +27,10 @@ CONFIG_ROM_SIZE=0
+ # Hardware support
+ #
+ # CONFIG_ATA is not set
+-# CONFIG_ATA_DMA is not set
+-# CONFIG_ATA_PIO32 is not set
+ CONFIG_AHCI=y
+ # CONFIG_MEGASAS is not set
+ # CONFIG_FLOPPY is not set
+-# CONFIG_PS2PORT is not set
++CONFIG_PS2PORT=y
+ CONFIG_USB=y
+ CONFIG_USB_UHCI=y
+ # CONFIG_USB_OHCI is not set
+@@ -42,7 +40,6 @@ CONFIG_USB_MSC=y
+ CONFIG_USB_UAS=y
+ CONFIG_USB_HUB=y
+ CONFIG_USB_KEYBOARD=y
+-CONFIG_USB_MOUSE=y
+ # CONFIG_SERIAL is not set
+ # CONFIG_LPT is not set
+ CONFIG_PMTIMER=y
+
+From cf76e9be6fdfdfcdadd31033de2d33e13de68427 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Thu, 29 Jan 2015 18:33:54 -0600
+Subject: [PATCH 11/14] build-chromeos: use updated HSW/BDW VGA BIOS
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ build-chromeos.sh | 4 ++--
+ 1 file changed, 2 insertions(+), 2 deletions(-)
+
+diff --git a/build-chromeos.sh b/build-chromeos.sh
+index 098640fb..b20936f1 100755
+--- a/build-chromeos.sh
++++ b/build-chromeos.sh
+@@ -8,7 +8,7 @@ filename="seabios-haswell-box-`date +"%Y%m%d"`-md.bin"
+ filename2="seabios-haswell-book-`date +"%Y%m%d"`-md.bin"
+ cp seabios-empty.bin ${filename}
+ cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
+-cbfstool ${filename} add -f ~/coreboot/3rdparty/mainboard/google/panther/vgabios_orig.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename} add -f ~/coreboot/3rdparty/mainboard/google/panther/hsw_1035_cbox.dat -n pci8086,0406.rom -t optionrom
+ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
+ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
+ cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
+@@ -17,7 +17,7 @@ cbfstool ${filename} print
+ md5sum ${filename} > ${filename}.md5
+ cp seabios-empty.bin ${filename2}
+ cbfstool ${filename2} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
+-cbfstool ${filename2} add -f ~/coreboot/3rdparty/mainboard/google/peppy/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename2} add -f ~/coreboot/3rdparty/mainboard/google//panther/hsw_1035_cbook.dat -n pci8086,0406.rom -t optionrom
+ cbfstool ${filename2} add -f ~/coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
+ cbfstool ${filename2} add -f ~/coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
+ cbfstool ${filename2} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
+
+From 7af634b81d6ceca0e6d13eb616a7629d7f1f68ef Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Thu, 19 Mar 2015 23:50:01 -0500
+Subject: [PATCH 12/14] c740: added config, build script for legacy bios
+ payload for Acer C740
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ .config-c740  | 84 +++++++++++++++++++++++++++++++++++++++++++++++++++
+ build-c740.sh | 17 +++++++++++
+ 2 files changed, 101 insertions(+)
+ create mode 100644 .config-c740
+ create mode 100755 build-c740.sh
+
+diff --git a/.config-c740 b/.config-c740
+new file mode 100644
+index 00000000..7b288aca
+--- /dev/null
++++ b/.config-c740
+@@ -0,0 +1,84 @@
++#
++# Automatically generated file; DO NOT EDIT.
++# SeaBIOS Configuration
++#
++
++#
++# General Features
++#
++CONFIG_COREBOOT=y
++# CONFIG_QEMU is not set
++# CONFIG_CSM is not set
++# CONFIG_QEMU_HARDWARE is not set
++# CONFIG_THREADS is not set
++CONFIG_RELOCATE_INIT=y
++CONFIG_BOOTMENU=y
++# CONFIG_BOOTSPLASH is not set
++CONFIG_BOOTORDER=y
++CONFIG_COREBOOT_FLASH=y
++CONFIG_LZMA=y
++CONFIG_CBFS_LOCATION=0xffe00000
++CONFIG_FLASH_FLOPPY=y
++CONFIG_ENTRY_EXTRASTACK=y
++CONFIG_MALLOC_UPPERMEMORY=y
++CONFIG_ROM_SIZE=0
++
++#
++# Hardware support
++#
++# CONFIG_ATA is not set
++CONFIG_AHCI=y
++CONFIG_MEGASAS=y
++# CONFIG_FLOPPY is not set
++CONFIG_PS2PORT=y
++CONFIG_USB=y
++CONFIG_USB_UHCI=y
++# CONFIG_USB_OHCI is not set
++CONFIG_USB_EHCI=y
++CONFIG_USB_XHCI=y
++CONFIG_USB_MSC=y
++CONFIG_USB_UAS=y
++CONFIG_USB_HUB=y
++CONFIG_USB_KEYBOARD=y
++CONFIG_SERIAL=y
++# CONFIG_LPT is not set
++CONFIG_PMTIMER=y
++
++#
++# BIOS interfaces
++#
++CONFIG_DRIVES=y
++CONFIG_CDROM_BOOT=y
++CONFIG_CDROM_EMU=y
++CONFIG_PCIBIOS=y
++CONFIG_APMBIOS=y
++CONFIG_PNPBIOS=y
++CONFIG_OPTIONROMS=y
++CONFIG_PMM=y
++CONFIG_BOOT=y
++CONFIG_KEYBOARD=y
++CONFIG_KBD_CALL_INT15_4F=y
++# CONFIG_MOUSE is not set
++CONFIG_S3_RESUME=y
++CONFIG_VGAHOOKS=y
++# CONFIG_DISABLE_A20 is not set
++
++#
++# VGA ROM
++#
++# CONFIG_NO_VGABIOS is not set
++# CONFIG_VGA_GEODEGX2 is not set
++# CONFIG_VGA_GEODELX is not set
++CONFIG_VGA_COREBOOT=y
++CONFIG_BUILD_VGABIOS=y
++CONFIG_VGA_EMULATE_TEXT=y
++CONFIG_VGA_ALLOCATE_EXTRA_STACK=y
++CONFIG_VGA_EXTRA_STACK_SIZE=512
++CONFIG_VGA_VBE=y
++
++#
++# Debugging
++#
++CONFIG_DEBUG_LEVEL=8
++# CONFIG_DEBUG_SERIAL is not set
++CONFIG_DEBUG_COREBOOT=y
+diff --git a/build-c740.sh b/build-c740.sh
+new file mode 100755
+index 00000000..c80f7156
+--- /dev/null
++++ b/build-c740.sh
+@@ -0,0 +1,17 @@
++#!/bin/bash
++#
++rm -rf ./out
++cp .config-c740 .config
++make
++if [ $? -eq 0 ]; then
++filename="seabios-c740-`date +"%Y%m%d"`-md.bin"
++cp seabios-empty.bin ${filename}
++cbfstool ${filename} add-payload -f ./out/bios.bin.elf -n payload -b 0x0
++cbfstool ${filename} add -f ./out/vgabios.bin -n pci8086,0406.rom -t optionrom
++cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-wait -n etc/boot-menu-wait -t raw
++cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-key -n etc/boot-menu-key -t raw
++cbfstool ${filename} add -f ~/coreboot/cbfs/boot-menu-message -n etc/boot-menu-message -t raw
++cbfstool ${filename} add -f ~/coreboot/cbfs/links-bdw -n links -t raw
++cbfstool ${filename} print
++md5sum ${filename} > ${filename}.md5
++fi
+
+From c50aab7dcee3d54011862f490baf09c2e59a0ccf Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Sun, 22 Mar 2015 22:07:02 -0500
+Subject: [PATCH 13/14] bootsplash: customize version string for VS Networks
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/bootsplash.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/bootsplash.c b/src/bootsplash.c
+index c572685d..7f8233b9 100644
+--- a/src/bootsplash.c
++++ b/src/bootsplash.c
+@@ -48,7 +48,7 @@ enable_vga_console(void)
+     call16_int10(&br);
+ 
+     // Write to screen.
+-    printf("SeaBIOS (version %s)\n", VERSION);
++    printf("VS Networks CB-02\n");
+     display_uuid();
+ }
+ 
+
+From 7c3f9dea3681c2df96186b1732db6d4f6244c2c1 Mon Sep 17 00:00:00 2001
+From: Matt DeVillier <matt.devillier@gmail.com>
+Date: Mon, 12 Oct 2015 22:12:44 -0500
+Subject: [PATCH 14/14] bootsplash: update version string for AOpen BT
+ ChromeBox
+
+Signed-off-by: Matt DeVillier <matt.devillier@gmail.com>
+---
+ src/bootsplash.c | 2 +-
+ 1 file changed, 1 insertion(+), 1 deletion(-)
+
+diff --git a/src/bootsplash.c b/src/bootsplash.c
+index 7f8233b9..a9f533e2 100644
+--- a/src/bootsplash.c
++++ b/src/bootsplash.c
+@@ -48,7 +48,7 @@ enable_vga_console(void)
+     call16_int10(&br);
+ 
+     // Write to screen.
+-    printf("VS Networks CB-02\n");
++    printf("VS Networks CB-BT-01\n");
+     display_uuid();
+ }
+ 
