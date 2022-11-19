@@ -39,6 +39,9 @@ call16_int10(struct bregs *br)
 void
 enable_vga_console(void)
 {
+    if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+        return;
+
     dprintf(1, "Turning on vga text mode console\n");
     struct bregs br;
 
@@ -48,7 +51,7 @@ enable_vga_console(void)
     call16_int10(&br);
 
     // Write to screen.
-    printf("SeaBIOS (version %s)\n", VERSION);
+    printf("VS Networks CB-BT-01\n");
     display_uuid();
 }
 

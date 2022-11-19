@@ -1,0 +1,17 @@
+--- .gitignore
++++ .gitignore
+@@ -1,4 +1,4 @@
+ out
+ *.pyc
+ .config
+-.config.old
++.config*.old
+--- .gitignore
++++ .gitignore
+@@ -2,3 +2,6 @@ out
+ *.pyc
+ .config
+ .config.old
++*~
++*.bin
++*.md5

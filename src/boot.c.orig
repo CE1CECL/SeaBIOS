@@ -882,8 +882,6 @@ call_boot_entry(struct segoff_s bootsegip, u8 bootdrv)
     // Set the magic number in ax and the boot drive in dl.
     br.dl = bootdrv;
     br.ax = 0xaa55;
-    outb(0xcd, 0xb2);
-    outb(0xb2, 0xcd);
     farcall16(&br);
 }
 

@@ -1,0 +1,299 @@
+--- src/boot.c
++++ src/boot.c
+@@ -311,6 +311,7 @@ static struct hlist_head BootList VARVERIFY32INIT;
+ #define IPL_TYPE_FLOPPY      0x01
+ #define IPL_TYPE_HARDDISK    0x02
+ #define IPL_TYPE_CDROM       0x03
++#define IPL_TYPE_USB	     0x04
+ #define IPL_TYPE_CBFS        0x20
+ #define IPL_TYPE_BEV         0x80
+ #define IPL_TYPE_BCV         0x81
+@@ -388,8 +389,17 @@ boot_add_floppy(struct drive_s *drive, const char *desc, int prio)
+ void
+ boot_add_hd(struct drive_s *drive, const char *desc, int prio)
+ {
+-    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++    char *usb = "USB";
++    char short_desc[4];
++    memcpy(short_desc, desc, 3);
++    short_desc[3]='\0';
++    if (strcmp(short_desc, usb) == 0) {
++	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+                   , (u32)drive, desc);
++    } else {
++    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++                  , (u32)drive, desc);
++    }
+ }
+ 
+ void
+@@ -548,7 +558,7 @@ static int HaveHDBoot, HaveFDBoot;
+ static void
+ add_bev(int type, u32 vector)
+ {
+-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
++    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+         return;
+     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+         return;
+@@ -586,6 +596,10 @@ bcv_prepboot(void)
+             map_hd_drive(pos->drive);
+             add_bev(IPL_TYPE_HARDDISK, 0);
+             break;
++	case IPL_TYPE_USB:
++            map_hd_drive(pos->drive);
++            add_bev(IPL_TYPE_USB, 0);
++            break;
+         case IPL_TYPE_CDROM:
+             map_cd_drive(pos->drive);
+             // NO BREAK
+@@ -746,6 +760,10 @@ do_boot(int seq_nr)
+         printf("Booting from Hard Disk...\n");
+         boot_disk(0x80, 1);
+         break;
++    case IPL_TYPE_USB:
++        printf("Booting from USB Device...\n");
++        boot_disk(0x80, 1);
++        break;
+     case IPL_TYPE_CDROM:
+         boot_cdrom((void*)ie->vector);
+         break;
+--- src/boot.c
++++ src/boot.c
+@@ -514,26 +514,17 @@ interactive_bootmenu(void)
+         printf("\nt. TPM Configuration\n");
+     }
+ 
+-    // Get key press.  If the menu key is ESC, do not restart boot unless
+-    // 1.5 seconds have passed.  Otherwise users (trained by years of
+-    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+-    // multiple times and immediately booting the primary boot device.
+-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
++    // Get key press
+     for (;;) {
+         scan_code = get_keystroke(1000);
+-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+-            continue;
+         if (tpm_can_show_menu() && scan_code == 20 /* t */) {
+             printf("\n");
+             tpm_menu();
+         }
+-        if (scan_code >= 1 && scan_code <= maxmenu+1)
++	if (scan_code > 1 && scan_code <= maxmenu+1)
+             break;
+     }
+     printf("\n");
+-    if (scan_code == 0x01)
+-        // ESC
+-        return;
+ 
+     // Find entry and make top priority.
+     int choice = scan_code - 1;
+--- src/boot.c
++++ src/boot.c
+@@ -457,6 +457,12 @@ interactive_bootmenu(void)
+     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+         return;
+ 
++    //skip menu if only one boot device
++    if ( NULL == BootList.first->next ) {
++	printf("\n");
++	return;
++    }
++
+     while (get_keystroke(0) >= 0)
+         ;
+ 
+--- src/boot.c
++++ src/boot.c
+@@ -304,6 +304,7 @@ static struct hlist_head BootList VARVERIFY32INIT;
+ #define IPL_TYPE_FLOPPY      0x01
+ #define IPL_TYPE_HARDDISK    0x02
+ #define IPL_TYPE_CDROM       0x03
++#define IPL_TYPE_USB	     0x04
+ #define IPL_TYPE_CBFS        0x20
+ #define IPL_TYPE_BEV         0x80
+ #define IPL_TYPE_BCV         0x81
+@@ -381,8 +382,17 @@ boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio)
+ void
+ boot_add_hd(struct drive_s *drive_g, const char *desc, int prio)
+ {
+-    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++    char *usb = "USB";
++    char short_desc[4];
++    memcpy(short_desc, desc, 3);
++    short_desc[3]='\0';
++    if (strcmp(short_desc, usb) == 0) {
++	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+                   , (u32)drive_g, desc);
++    } else {
++    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++                  , (u32)drive_g, desc);
++    }
+ }
+ 
+ void
+@@ -541,7 +551,7 @@ static int HaveHDBoot, HaveFDBoot;
+ static void
+ add_bev(int type, u32 vector)
+ {
+-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
++    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+         return;
+     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+         return;
+@@ -579,6 +589,10 @@ bcv_prepboot(void)
+             map_hd_drive(pos->drive);
+             add_bev(IPL_TYPE_HARDDISK, 0);
+             break;
++	case IPL_TYPE_USB:
++            map_hd_drive(pos->drive);
++            add_bev(IPL_TYPE_USB, 0);
++            break;
+         case IPL_TYPE_CDROM:
+             map_cd_drive(pos->drive);
+             // NO BREAK
+@@ -739,6 +753,10 @@ do_boot(int seq_nr)
+         printf("Booting from Hard Disk...\n");
+         boot_disk(0x80, 1);
+         break;
++    case IPL_TYPE_USB:
++        printf("Booting from USB Device...\n");
++        boot_disk(0x80, 1);
++        break;
+     case IPL_TYPE_CDROM:
+         boot_cdrom((void*)ie->vector);
+         break;
+--- src/boot.c
++++ src/boot.c
+@@ -507,26 +507,17 @@ interactive_bootmenu(void)
+         printf("\nt. TPM Configuration\n");
+     }
+ 
+-    // Get key press.  If the menu key is ESC, do not restart boot unless
+-    // 1.5 seconds have passed.  Otherwise users (trained by years of
+-    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+-    // multiple times and immediately booting the primary boot device.
+-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
++    // Get key press
+     for (;;) {
+         scan_code = get_keystroke(1000);
+-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+-            continue;
+         if (tpm_can_show_menu() && scan_code == 20 /* t */) {
+             printf("\n");
+             tpm_menu();
+         }
+-        if (scan_code >= 1 && scan_code <= maxmenu+1)
++	if (scan_code > 1 && scan_code <= maxmenu+1)
+             break;
+     }
+     printf("\n");
+-    if (scan_code == 0x01)
+-        // ESC
+-        return;
+ 
+     // Find entry and make top priority.
+     int choice = scan_code - 1;
+--- src/boot.c
++++ src/boot.c
+@@ -456,6 +456,12 @@ interactive_bootmenu(void)
+     if (! CONFIG_BOOTMENU || !romfile_loadint("etc/show-boot-menu", 1))
+         return;
+ 
++    //skip menu if only one boot device
++    if ( NULL == BootList.first->next ) {
++	printf("\n");
++	return;
++    }
++
+     while (get_keystroke(0) >= 0)
+         ;
+ 
+--- src/boot.c
++++ src/boot.c
+@@ -303,6 +303,7 @@ static struct hlist_head BootList VARVERIFY32INIT;
+ #define IPL_TYPE_FLOPPY      0x01
+ #define IPL_TYPE_HARDDISK    0x02
+ #define IPL_TYPE_CDROM       0x03
++#define IPL_TYPE_USB	     0x04
+ #define IPL_TYPE_CBFS        0x20
+ #define IPL_TYPE_BEV         0x80
+ #define IPL_TYPE_BCV         0x81
+@@ -380,8 +381,17 @@ boot_add_floppy(struct drive_s *drive_g, const char *desc, int prio)
+ void
+ boot_add_hd(struct drive_s *drive_g, const char *desc, int prio)
+ {
+-    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++    char *usb = "USB";
++    char short_desc[4];
++    memcpy(short_desc, desc, 3);
++    short_desc[3]='\0';
++    if (strcmp(short_desc, usb) == 0) {
++	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+                   , (u32)drive_g, desc);
++    } else {
++    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
++                  , (u32)drive_g, desc);
++    }
+ }
+ 
+ void
+@@ -533,7 +543,7 @@ static int HaveHDBoot, HaveFDBoot;
+ static void
+ add_bev(int type, u32 vector)
+ {
+-    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
++    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+         return;
+     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
+         return;
+@@ -571,6 +581,10 @@ bcv_prepboot(void)
+             map_hd_drive(pos->drive);
+             add_bev(IPL_TYPE_HARDDISK, 0);
+             break;
++	case IPL_TYPE_USB:
++            map_hd_drive(pos->drive);
++            add_bev(IPL_TYPE_USB, 0);
++            break;
+         case IPL_TYPE_CDROM:
+             map_cd_drive(pos->drive);
+             // NO BREAK
+@@ -731,6 +745,10 @@ do_boot(int seq_nr)
+         printf("Booting from Hard Disk...\n");
+         boot_disk(0x80, 1);
+         break;
++    case IPL_TYPE_USB:
++        printf("Booting from USB Device...\n");
++        boot_disk(0x80, 1);
++        break;
+     case IPL_TYPE_CDROM:
+         boot_cdrom((void*)ie->vector);
+         break;
+--- src/boot.c
++++ src/boot.c
+@@ -503,22 +503,13 @@ interactive_bootmenu(void)
+                , strtcpy(desc, pos->description, ARRAY_SIZE(desc)));
+     }
+ 
+-    // Get key press.  If the menu key is ESC, do not restart boot unless
+-    // 1.5 seconds have passed.  Otherwise users (trained by years of
+-    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+-    // multiple times and immediately booting the primary boot device.
+-    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
++    // Get key press
+     for (;;) {
+         scan_code = get_keystroke(1000);
+-        if (scan_code == 1 && !irqtimer_check(esc_accepted_time))
+-            continue;
+-        if (scan_code >= 1 && scan_code <= maxmenu+1)
++        if (scan_code > 1 && scan_code <= maxmenu+1)
+             break;
+     }
+     printf("\n");
+-    if (scan_code == 0x01)
+-        // ESC
+-        return;
+ 
+     // Find entry and make top priority.
+     int choice = scan_code - 1;
