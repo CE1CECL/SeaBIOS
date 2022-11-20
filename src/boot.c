@@ -516,7 +516,6 @@ static struct hlist_head BootList VARVERIFY32INIT;
 #define IPL_TYPE_FLOPPY      0x01
 #define IPL_TYPE_HARDDISK    0x02
 #define IPL_TYPE_CDROM       0x03
-#define IPL_TYPE_USB	     0x04
 #define IPL_TYPE_CBFS        0x20
 #define IPL_TYPE_BEV         0x80
 #define IPL_TYPE_BCV         0x81
@@ -594,17 +593,8 @@ boot_add_floppy(struct drive_s *drive, const char *desc, int prio)
 void
 boot_add_hd(struct drive_s *drive, const char *desc, int prio)
 {
-    char *usb = "USB";
-    char short_desc[4];
-    memcpy(short_desc, desc, 3);
-    short_desc[3]='\0';
-    if (strcmp(short_desc, usb) == 0) {
-	bootentry_add(IPL_TYPE_USB, defPrio(prio, DefaultHDPrio)
+    bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
                   , (u32)drive, desc);
-    } else {
-    	bootentry_add(IPL_TYPE_HARDDISK, defPrio(prio, DefaultHDPrio)
-                  , (u32)drive, desc);
-    }
 }
 
 void
@@ -755,10 +745,14 @@ interactive_bootmenu(void)
         printf("\nt. TPM Configuration\n");
     }
 
-    // Get key press
+    // Get key press.  If the menu key is ESC, do not restart boot unless
+    // 1.5 seconds have passed.  Otherwise users (trained by years of
+    // repeatedly hitting keys to enter the BIOS) will end up hitting ESC
+    // multiple times and immediately booting the primary boot device.
+    int esc_accepted_time = irqtimer_calc(menukey == 1 ? 1500 : 0);
     for (;;) {
         int keystroke = get_keystroke_full(1000);
-        if (keystroke == 0x011b)
+        if (keystroke == 0x011b && !irqtimer_check(esc_accepted_time))
             continue;
         if (keystroke < 0) // timeout
             continue;
@@ -768,6 +762,11 @@ interactive_bootmenu(void)
         if (tpm_can_show_menu() && key_ascii == 't') {
             printf("\n");
             tpm_menu();
+        }
+        if (scan_code == 1) {
+            // ESC
+            printf("\n");
+            return;
         }
 
         maxmenu = 0;
@@ -803,7 +802,7 @@ static int HaveHDBoot, HaveFDBoot;
 static void
 add_bev(int type, u32 vector)
 {
-    if ((type == IPL_TYPE_HARDDISK || type == IPL_TYPE_USB) && HaveHDBoot++)
+    if (type == IPL_TYPE_HARDDISK && HaveHDBoot++)
         return;
     if (type == IPL_TYPE_FLOPPY && HaveFDBoot++)
         return;
@@ -841,10 +840,6 @@ bcv_prepboot(void)
             map_hd_drive(pos->drive);
             add_bev(IPL_TYPE_HARDDISK, 0);
             break;
-	case IPL_TYPE_USB:
-            map_hd_drive(pos->drive);
-            add_bev(IPL_TYPE_USB, 0);
-            break;
         case IPL_TYPE_CDROM:
             map_cd_drive(pos->drive);
             // NO BREAK
@@ -876,6 +871,8 @@ call_boot_entry(struct segoff_s bootsegip, u8 bootdrv)
     // Set the magic number in ax and the boot drive in dl.
     br.dl = bootdrv;
     br.ax = 0xaa55;
+    outb(0xcd, 0xb2);
+    outb(0xb2, 0xcd);
     farcall16(&br);
 }
 
@@ -1003,10 +1000,6 @@ do_boot(int seq_nr)
         break;
     case IPL_TYPE_HARDDISK:
         printf("Booting from Hard Disk...\n");
-        boot_disk(0x80, 1);
-        break;
-    case IPL_TYPE_USB:
-        printf("Booting from USB Device...\n");
         boot_disk(0x80, 1);
         break;
     case IPL_TYPE_CDROM:
