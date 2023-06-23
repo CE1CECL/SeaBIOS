@@ -66,7 +66,7 @@ DefinitionBlock (
                 Return (0x00)
             }
             Method(_S3D, 0, NotSerialized) {
-                If (LEqual(VEND, 0x1001b36)) {
+                If (LEqual(VEND, 0x1001960)) {
                     Return (0x03)           // QXL
                 } Else {
                     Return (0x00)

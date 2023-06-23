@@ -331,14 +331,14 @@ bochsvga_setup(void)
         u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
         int barid, bar;
         switch (vendor) {
-        case 0x15ad: /* qemu vmware vga */
+        case 0x1960: /* qemu vmware vga */
             barid = 1;
             break;
-        case 0x1234: /* stdvga */
-            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_2);
-            io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
-            barid = 0;
-            break;
+//        case 0x1960: /* stdvga */
+//            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_2);
+//            io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
+//            barid = 0;
+//            break;
         default: /* qxl, virtio */
             barid = 0;
             break;
