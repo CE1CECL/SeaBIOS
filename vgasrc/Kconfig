@@ -192,13 +192,13 @@ menu "VGA ROM"
         prompt "PCI Vendor ID" if OVERRIDE_PCI_ID
         default 0x1013 if VGA_CIRRUS
         default 0x1002 if VGA_ATI
-        default 0x1960 if VGA_BOCHS_STDVGA
-        default 0x1960 if VGA_BOCHS_VMWARE
-        default 0x1960 if VGA_BOCHS_QXL
-        default 0x1960 if VGA_BOCHS_VIRTIO
+        default 0x2007 if VGA_BOCHS_STDVGA
+        default 0x2007 if VGA_BOCHS_VMWARE
+        default 0x2007 if VGA_BOCHS_QXL
+        default 0x2007 if VGA_BOCHS_VIRTIO
         default 0x100b if VGA_GEODEGX2
         default 0x1022 if VGA_GEODELX
-        default 0x1960 if DISPLAY_BOCHS
+        default 0x2007 if DISPLAY_BOCHS
         default 0x0000
         help
             Vendor ID for the PCI ROM
