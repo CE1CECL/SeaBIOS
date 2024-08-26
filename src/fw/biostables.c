@@ -483,7 +483,7 @@ smbios_new_type_0(void *start,
 }
 
 #define BIOS_NAME "2007"
-#define BIOS_DATE "06/22/2007"
+#define BIOS_DATE "07/20/2007"
 
 /*
  * Build tables using qtables as input, adding additional type 0
