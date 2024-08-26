@@ -328,17 +328,17 @@ bochsvga_setup(void)
     u32 io_addr = 0;
     int bdf = GET_GLOBAL(VgaBDF);
     if (CONFIG_VGA_PCI && bdf >= 0) {
-        u16 vendor = pci_config_readw(bdf, PCI_VENDOR_ID);
+        u16 device = pci_config_readw(bdf, PCI_DEVICE_ID);
         int barid, bar;
-        switch (vendor) {
-        case 0x2007: /* qemu vmware vga */
+        switch (device) {
+        case 0x0405: /* qemu vmware vga */
             barid = 1;
             break;
-//        case 0x2007: /* stdvga */
-//            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_2);
-//            io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
-//            barid = 0;
-//            break;
+        case 0x1111: /* stdvga */
+            bar = pci_config_readl(bdf, PCI_BASE_ADDRESS_2);
+            io_addr = bar & PCI_BASE_ADDRESS_IO_MASK;
+            barid = 0;
+            break;
         default: /* qxl, virtio */
             barid = 0;
             break;
