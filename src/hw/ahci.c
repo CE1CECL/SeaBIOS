@@ -591,15 +591,103 @@ static int ahci_port_setup(struct ahci_port_s *port)
         port->drive.sectors = (u64)-1;
         u8 iscd = ((buffer[0] >> 8) & 0x1f) == 0x05;
         if (!iscd) {
-            dprintf(1, "AHCI/%d: atapi device isn't a cdrom\n", port->pnr);
-            return -1;
-        }
-        port->desc = znprintf(MAXDESCSIZE
-                              , "DVD/CD [AHCI/%d: %s ATAPI-%d DVD/CD]"
-                              , port->pnr
-                              , ata_extract_model(model, MAXMODEL, buffer)
-                              , ata_extract_version(buffer));
-        port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+		dprintf(1, "AHCI/%d: atapi device isn't a cdrom\n", port->pnr);
+		port->atapi = 0;
+		sata_prep_simple(&port->cmd->fis, ATA_CMD_IDENTIFY_DEVICE);
+		rc = ahci_command(port, 0, 0, buffer, sizeof(buffer));
+		if (rc < 0)
+			return -1;
+		// found disk (ata)
+		port->drive.type = DTYPE_AHCI;
+		port->drive.blksize = DISK_SECTOR_SIZE;
+		port->drive.pchs.cylinder = buffer[1];
+		port->drive.pchs.head = buffer[3];
+		port->drive.pchs.sector = buffer[6];
+
+		u64 sectors;
+		if (buffer[83] & (1 << 10)) // word 83 - lba48 support
+		    sectors = *(u64*)&buffer[100]; // word 100-103
+		else
+		    sectors = *(u32*)&buffer[60]; // word 60 and word 61
+		port->drive.sectors = sectors;
+		u64 adjsize = sectors >> 11;
+		char adjprefix = 'M';
+		if (adjsize >= (1 << 16)) {
+		    adjsize >>= 10;
+		    adjprefix = 'G';
+		}
+		port->desc = znprintf(MAXDESCSIZE
+		                      , "AHCI/%d: %s ATA-%d Hard-Disk (%u %ciBytes)"
+		                      , port->pnr
+		                      , ata_extract_model(model, MAXMODEL, buffer)
+		                      , ata_extract_version(buffer)
+		                      , (u32)adjsize, adjprefix);
+		port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+
+		s8 multi_dma = -1;
+		s8 pio_mode = -1;
+		s8 udma_mode = -1;
+		// If bit 2 in word 53 is set, udma information is valid in word 88.
+		if (buffer[53] & 0x04) {
+		    udma_mode = 6;
+		    while ((udma_mode >= 0) &&
+		           !((buffer[88] & 0x7f) & ( 1 << udma_mode ))) {
+		        udma_mode--;
+		    }
+		}
+		// If bit 1 in word 53 is set, multiword-dma and advanced pio modes
+		// are available in words 63 and 64.
+		if (buffer[53] & 0x02) {
+		    pio_mode = 4;
+		    multi_dma = 3;
+		    while ((multi_dma >= 0) &&
+		           !((buffer[63] & 0x7) & ( 1 << multi_dma ))) {
+		        multi_dma--;
+		    }
+		    while ((pio_mode >= 3) &&
+		           !((buffer[64] & 0x3) & ( 1 << ( pio_mode - 3 ) ))) {
+		        pio_mode--;
+		    }
+		}
+		dprintf(2, "AHCI/%d: supported modes: udma %d, multi-dma %d, pio %d\n",
+		        port->pnr, udma_mode, multi_dma, pio_mode);
+
+		sata_prep_simple(&port->cmd->fis, ATA_CMD_SET_FEATURES);
+		port->cmd->fis.feature = ATA_SET_FEATRUE_TRANSFER_MODE;
+		// Select used mode. UDMA first, then Multi-DMA followed by
+		// advanced PIO modes 3 or 4. If non, set default PIO.
+		if (udma_mode >= 0) {
+		    dprintf(1, "AHCI/%d: Set transfer mode to UDMA-%d\n",
+		            port->pnr, udma_mode);
+		    port->cmd->fis.sector_count = ATA_TRANSFER_MODE_ULTRA_DMA
+		                                  | udma_mode;
+		} else if (multi_dma >= 0) {
+		    dprintf(1, "AHCI/%d: Set transfer mode to Multi-DMA-%d\n",
+		            port->pnr, multi_dma);
+		    port->cmd->fis.sector_count = ATA_TRANSFER_MODE_MULTIWORD_DMA
+		                                  | multi_dma;
+		} else if (pio_mode >= 3) {
+		    dprintf(1, "AHCI/%d: Set transfer mode to PIO-%d\n",
+		            port->pnr, pio_mode);
+		    port->cmd->fis.sector_count = ATA_TRANSFER_MODE_PIO_FLOW_CTRL
+		                                  | pio_mode;
+		} else {
+		    dprintf(1, "AHCI/%d: Set transfer mode to default PIO\n",
+		            port->pnr);
+		    port->cmd->fis.sector_count = ATA_TRANSFER_MODE_DEFAULT_PIO;
+		}
+		rc = ahci_command(port, 1, 0, 0, 0);
+		if (rc < 0) {
+		    dprintf(1, "AHCI/%d: Set transfer mode failed.\n", port->pnr);
+		}
+        } else {
+		port->desc = znprintf(MAXDESCSIZE
+		                      , "DVD/CD [AHCI/%d: %s ATAPI-%d DVD/CD]"
+		                      , port->pnr
+		                      , ata_extract_model(model, MAXMODEL, buffer)
+		                      , ata_extract_version(buffer));
+		port->prio = bootprio_find_ata_device(ctrl->pci_tmp, pnr, 0);
+	}
     }
     boot_lchs_find_ata_device(ctrl->pci_tmp, pnr, 0, &(port->drive.lchs));
     return 0;
